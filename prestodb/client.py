@@ -155,10 +155,21 @@ class PrestoRequest(object):
         self._source = source
         self._catalog = catalog
         self._schema = schema
+        self._headers = {
+            constants.HEADER_CATALOG: catalog,
+            constants.HEADER_SCHEMA: schema,
+            constants.HEADER_SOURCE: source,
+            constants.HEADER_USER: user,
+        }
         if session_properties is None:
             self._session_properties = {}
         else:
             self._session_properties = session_properties
+            self._headers[constants.HEADER_SESSION] = ','.join(
+                # ``name`` must not contain ``=``
+                '{}={}'.format(name, value)
+                for name, value in self._session_properties.items()
+            )
         self._http_scheme = http_scheme
 
         self._next_uri = None  # type: Optional[Text]
@@ -218,30 +229,17 @@ class PrestoRequest(object):
     @property
     def headers(self):
         # type: () -> Dict[Text, Text]
-        headers = {
-            'X-Presto-Catalog': self._catalog,
-            'X-Presto-Schema': self._schema,
-            'X-Presto-Source': self._source,
-            'X-Presto-User': self._user,
-        }
-
-        if self._session_properties:
-            headers['X-Presto-Session'] = ','.join(
-                # ``name`` must not contain ``=``
-                '{}={}'.format(name, value)
-                for name, value in self._session_properties.items()
-            )
-
-        return headers
+        return self._headers
 
     def post(self, sql):
         return self._post(
             self.statement_url,
             data=sql.encode('utf-8'),
+            headers=self.headers,
         )
 
     def get(self, url):
-        return self._get(url)
+        return self._get(url, headers=self.headers)
 
     def _process_error(self, error):
         error_type = error['errorType']
@@ -273,12 +271,12 @@ class PrestoRequest(object):
         if 'error' in response:
             raise self._process_error(response['error'])
 
-        if 'X-Presto-Clear-Session' in http_response.headers:
-            propname = response.headers['X-Presto-Clear-Session']
+        if constants.HEADER_CLEAR_SESSION in http_response.headers:
+            propname = response.headers[constants.HEADER_CLEAR_SESSION]
             self._session_properties.pop(propname, None)
 
-        if 'X-Presto-Set-Session' in http_response.headers:
-            set_session_header = response.headers['X-Presto-Set-Session']
+        if constants.HEADER_SET_SESSION in http_response.headers:
+            set_session_header = response.headers[constants.HEADER_SET_SESSION]
             name, value = set_session_header.split('=', 1)
             self._session_properties[name] = value
 
