@@ -68,7 +68,7 @@ with prestodb.dbapi.connect(
     user='the-user',
     catalog='the-catalog',
     schema='the-schema',
-    isolation_level=transaction.IsolationLevel.REPEATABLE_READ,
+    isolation_level='transaction.IsolationLevel.REPEATABLE_READ',
 ) as conn:
   cur = conn.cursor()
   cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
