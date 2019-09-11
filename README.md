@@ -136,7 +136,7 @@ We recommend that you use `virtualenv` to develop on `presto-python-client`:
 
 ```
 $ virtualenv /path/to/env
-$ /path/to/env/bin/active
+$ /path/to/env/bin/activate
 $ pip install -r requirements.txt
 ```
 
