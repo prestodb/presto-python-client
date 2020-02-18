@@ -69,7 +69,7 @@ class Connection(object):
         schema=constants.DEFAULT_SCHEMA,
         session_properties=None,
         http_headers=None,
-        http_scheme=constants.HTTP,
+        http_scheme=constants.HTTPS,
         auth=constants.DEFAULT_AUTH,
         redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
