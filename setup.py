@@ -27,7 +27,9 @@ with open("prestodb/__init__.py", "rb") as f:
 
 kerberos_require = ["requests_kerberos"]
 
-all_require = [kerberos_require]
+google_auth_require = ["google_auth"]
+
+all_require = [kerberos_require, google_auth_require]
 
 tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 
@@ -70,6 +72,7 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "google_auth": google_auth_require,
         "tests": tests_require,
         ':python_version=="2.7"': py27_require,
     },

@@ -41,3 +41,8 @@ HEADER_CLEAR_SESSION = HEADER_PREFIX + "Clear-Session"
 
 HEADER_STARTED_TRANSACTION = HEADER_PREFIX + "Started-Transaction-Id"
 HEADER_TRANSACTION = HEADER_PREFIX + "Transaction-Id"
+
+PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential"
+GCS_CREDENTIALS_OAUTH_TOKEN_KEY = "hive.gcs.oauth"
+
+GCS_READ_ONLY = "https://www.googleapis.com/auth/devstorage.read_only"
