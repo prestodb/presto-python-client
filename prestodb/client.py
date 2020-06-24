@@ -209,6 +209,7 @@ class PrestoRequest(object):
         max_attempts=MAX_ATTEMPTS,  # type: int
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
+        service_account_file=None,
     ):
         # type: (...) -> None
         self._client_session = ClientSession(
@@ -230,6 +231,19 @@ class PrestoRequest(object):
         else:
             # mypy cannot follow module import
             self._http_session = self.http.Session()  # type: ignore
+
+        self.credentials = None
+        self.auth_req = None
+        if service_account_file is not None:
+            import google.auth.transport.requests
+            from google.oauth2 import service_account
+
+            self.auth_req = google.auth.transport.requests.Request()
+            self.credentials = service_account.Credentials.from_service_account_file(
+                service_account_file, scopes=[constants.GCS_READ_ONLY]
+            )
+            self._http_session.headers.update(self.get_oauth_token())
+
         self._http_session.headers.update(self.http_headers)
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
@@ -422,6 +436,17 @@ class PrestoRequest(object):
             columns=response.get("columns"),
         )
 
+    @property
+    def http_session(self):
+        return self._http_session
+
+    def get_oauth_token(self):
+        self.credentials.refresh(self.auth_req)
+        return {
+            constants.PRESTO_EXTRA_CREDENTIAL: "%s = %s"
+            % (constants.GCS_CREDENTIALS_OAUTH_TOKEN_KEY, self.credentials.token)
+        }
+
 
 class PrestoResult(object):
     """
@@ -466,12 +491,13 @@ class PrestoQuery(object):
         sql,  # type: Text
     ):
         # type: (...) -> None
+        self.auth_req = request.auth_req  # type: Optional[Request]
+        self.credentials = request.credentials  # type: Optional[Credentials]
         self.query_id = None  # type: Optional[Text]
 
         self._stats = {}  # type: Dict[Any, Any]
         self._warnings = []  # type: List[Dict[Any, Any]]
         self._columns = None  # type: Optional[List[Text]]
-
         self._finished = False
         self._cancelled = False
         self._request = request
@@ -505,6 +531,9 @@ class PrestoQuery(object):
         """
         if self._cancelled:
             raise exceptions.PrestoUserError("Query has been cancelled", self.query_id)
+
+        if self.credentials is not None and not self.credentials.valid:
+            self._request.http_session.headers.update(self._request.get_oauth_token())
 
         response = self._request.post(self._sql)
         status = self._request.process(response)
