@@ -3,7 +3,8 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
-  - "pypy-5.4"
+  - "3.7"
+  - "pypy3.6-7.0.0"
 env:
   - PRESTO_VERSION=0.202
 services:

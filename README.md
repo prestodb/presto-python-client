@@ -3,7 +3,7 @@
 # Introduction
 
 This package provides a client interface to query [Presto](https://prestodb.io/)
-a distributed SQL engine. It supports Python 2.7, 3.5, 3.6, and pypy.
+a distributed SQL engine. It supports Python 2.7, 3.5, 3.6, 3.7, and pypy.
 
 # Installation
 
@@ -54,6 +54,36 @@ conn=prestodb.dbapi.connect(
 cur = conn.cursor()
 cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
+```
+
+# Oauth Authentication
+To enable GCS access, Oauth authentication support is added by passing in a `shadow.json` file of a service account.
+Following example shows a use case where both Kerberos and Oauth authentication are enabled.
+
+```python
+import getpass
+import prestodb
+from prestodb.client import PrestoRequest, PrestoQuery
+from requests_kerberos import DISABLED
+
+kerberos_auth = prestodb.auth.KerberosAuthentication(
+   mutual_authentication=DISABLED,
+   service_name='kerberos service name',
+   force_preemptive=True,
+   hostname_override='example.com'
+)
+
+req = PrestoRequest(
+    host='GCP coordinator url',
+    port=443,
+    user=getpass.getuser(),
+    service_account_file='Service account json file path',
+    http_scheme='https',
+    auth=kerberos_auth
+)
+
+query = PrestoQuery(req, "SELECT * FROM system.runtime.nodes")
+rows = list(query.execute())
 ```
 
 # Transactions
