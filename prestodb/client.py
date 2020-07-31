@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for myp
 import prestodb.logging
 import prestodb.redirect
 import requests
+from six.moves.urllib.parse import urlparse
 from prestodb import constants, exceptions
 from prestodb.transaction import NO_TRANSACTION
 
@@ -337,7 +338,8 @@ class PrestoRequest(object):
     @property
     def next_uri(self):
         # type: () -> Text
-        return self._next_uri
+        next_uri_path = urlparse(self._next_uri).path
+        return self.get_url(next_uri_path)
 
     def post(self, sql):
         data = sql.encode("utf-8")
@@ -431,7 +433,7 @@ class PrestoRequest(object):
             stats=response["stats"],
             warnings=response.get("warnings", []),
             info_uri=response["infoUri"],
-            next_uri=self._next_uri,
+            next_uri=self.next_uri,
             rows=response.get("data", []),
             columns=response.get("columns"),
         )
