@@ -359,10 +359,10 @@ class PrestoRequest(object):
                 url = self._redirect_handler.handle(location)
                 log_level = logger.getEffectiveLevel()
                 if log_level <= logging.logging.INFO:
-                logger.info(
-                    "redirect {} from {} to {}".format(
-                        http_response.status_code, location, url
-                    )
+                    logger.info(
+                        "redirect {} from {} to {}".format(
+                            http_response.status_code, location, url
+                        )
                 )
                 http_response = self._post(
                     url,
