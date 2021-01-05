@@ -358,7 +358,7 @@ class PrestoRequest(object):
                 location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
                 log_level = logger.getEffectiveLevel()
-                if log_level <= logging.logging.INFO:
+                if log_level <= prestodb.logging.logging.INFO:
                     logger.info(
                         "redirect {} from {} to {}".format(
                             http_response.status_code, location, url
@@ -416,7 +416,7 @@ class PrestoRequest(object):
             response = self.json_lib.loads(http_response.content)
         else:
             response = http_response.json()
-        if log_level <= logging.logging.DEBUG:
+        if log_level <= prestodb.logging.logging.DEBUG:
             logger.debug("HTTP {}: {}".format(http_response.status_code, response))
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
@@ -488,7 +488,7 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                if log_level <= logging.logging.DEBUG:
+                if log_level <= prestodb.logging.logging.DEBUG:
                     logger.debug("row {}".format(row))
                 yield row
 
@@ -566,7 +566,7 @@ class PrestoQuery(object):
             self._columns = status.columns
         self._stats.update(status.stats)
         log_level = logger.getEffectiveLevel()
-        if log_level <= logging.logging.DEBUG:
+        if log_level <= prestodb.logging.logging.DEBUG:
             logger.debug(status)
         if status.next_uri is None:
             self._finished = True
@@ -581,13 +581,13 @@ class PrestoQuery(object):
         log_level = logger.getEffectiveLevel()
         self._cancelled = True
         url = self._request.get_url("/v1/query/{}".format(self.query_id))
-        if log_level <= logging.logging.DEBUG:
+        if log_level <= prestodb.logging.logging.DEBUG:
             logger.debug("cancelling query: %s", self.query_id)
         response = self._request.delete(url)
-        if log_level <= logging.logging.INFO:
+        if log_level <= prestodb.logging.logging.INFO:
             logger.info(response)
         if response.status_code == requests.codes.no_content:
-            if log_level <= logging.logging.DEBUG:
+            if log_level <= prestodb.logging.logging.DEBUG:
                 logger.debug("query cancelled: %s", self.query_id)
             return
         self._request.raise_response_error(response)
