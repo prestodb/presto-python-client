@@ -210,6 +210,7 @@ class PrestoRequest(object):
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         service_account_file=None,
+        json_lib=None,
     ):
         # type: (...) -> None
         self._client_session = ClientSession(
@@ -258,6 +259,7 @@ class PrestoRequest(object):
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
         self._http_scheme = http_scheme
+        self.json_lib = json_lib
 
     @property
     def transaction_id(self):
@@ -355,10 +357,12 @@ class PrestoRequest(object):
             while http_response is not None and http_response.is_redirect:
                 location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
-                logger.info(
-                    "redirect {} from {} to {}".format(
-                        http_response.status_code, location, url
-                    )
+                log_level = logger.getEffectiveLevel()
+                if log_level <= prestodb.logging.logging.INFO:
+                    logger.info(
+                        "redirect {} from {} to {}".format(
+                            http_response.status_code, location, url
+                        )
                 )
                 http_response = self._post(
                     url,
@@ -406,9 +410,14 @@ class PrestoRequest(object):
         if not http_response.ok:
             self.raise_response_error(http_response)
 
+        log_level = logger.getEffectiveLevel()
         http_response.encoding = "utf-8"
-        response = http_response.json()
-        logger.debug("HTTP {}: {}".format(http_response.status_code, response))
+        if self.json_lib:
+            response = self.json_lib.loads(http_response.content)
+        else:
+            response = http_response.json()
+        if log_level <= prestodb.logging.logging.DEBUG:
+            logger.debug("HTTP {}: {}".format(http_response.status_code, response))
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
 
@@ -474,11 +483,13 @@ class PrestoResult(object):
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
+        log_level = logger.getEffectiveLevel()
         while not self._query.is_finished():
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                logger.debug("row {}".format(row))
+                if log_level <= prestodb.logging.logging.DEBUG:
+                    logger.debug("row {}".format(row))
                 yield row
 
 
@@ -554,7 +565,9 @@ class PrestoQuery(object):
         if status.columns:
             self._columns = status.columns
         self._stats.update(status.stats)
-        logger.debug(status)
+        log_level = logger.getEffectiveLevel()
+        if log_level <= prestodb.logging.logging.DEBUG:
+            logger.debug(status)
         if status.next_uri is None:
             self._finished = True
         return status.rows
@@ -565,13 +578,17 @@ class PrestoQuery(object):
         if self.query_id is None or self.is_finished():
             return
 
+        log_level = logger.getEffectiveLevel()
         self._cancelled = True
         url = self._request.get_url("/v1/query/{}".format(self.query_id))
-        logger.debug("cancelling query: %s", self.query_id)
+        if log_level <= prestodb.logging.logging.DEBUG:
+            logger.debug("cancelling query: %s", self.query_id)
         response = self._request.delete(url)
-        logger.info(response)
+        if log_level <= prestodb.logging.logging.INFO:
+            logger.info(response)
         if response.status_code == requests.codes.no_content:
-            logger.debug("query cancelled: %s", self.query_id)
+            if log_level <= prestodb.logging.logging.DEBUG:
+                logger.debug("query cancelled: %s", self.query_id)
             return
         self._request.raise_response_error(response)
 

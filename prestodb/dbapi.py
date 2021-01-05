@@ -75,6 +75,7 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
+        json_lib=None,
     ):
         self.host = host
         self.port = port
@@ -95,6 +96,7 @@ class Connection(object):
         self._isolation_level = isolation_level
         self._request = None
         self._transaction = None
+        self._json_lib = json_lib
 
     @property
     def isolation_level(self):
@@ -154,6 +156,9 @@ class Connection(object):
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
+            None,
+            None,
+            self._json_lib,
         )
 
     def cursor(self):
