@@ -17,6 +17,13 @@ import pytest
 from fixtures import run_presto
 from prestodb.transaction import IsolationLevel
 
+TEST_SESSION_PROPERTIES = {
+    # Need a property that allows supplying an arbitrary string
+    # that requires URL encoding
+    "spatial_partitioning_table_name": '{"DQ":{"dq_pending":true,"dq_insert_task_id":"di.universal_dq.testdqblocking.insert_task"}}',
+    "query_max_run_time": "10m",
+    "query_priority": "1",
+}
 
 @pytest.fixture
 def presto_connection(run_presto):
@@ -136,7 +143,7 @@ def test_session_properties(run_presto):
         port=port,
         user="test",
         source="test",
-        session_properties={"query_max_run_time": "10m", "query_priority": "1"},
+        session_properties=TEST_SESSION_PROPERTIES,
         max_attempts=1,
     )
     cur = connection.cursor()

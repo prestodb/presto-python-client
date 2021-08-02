@@ -36,6 +36,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
+from urllib import parse
 
 import prestodb.logging
 import prestodb.redirect
@@ -94,7 +95,10 @@ def get_header_values(headers, header):
 
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [(k.strip(), v.strip()) for k, v in (kv.split("=", 1) for kv in kvs)]
+    return [
+        (k.strip(), parse.unquote(v.strip()))
+        for k, v in (kv.split("=", 1) for kv in kvs)
+    ]
 
 
 class PrestoStatus(object):
@@ -279,7 +283,7 @@ class PrestoRequest(object):
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, value)
+            "{}={}".format(name, parse.quote(value))
             for name, value in self._client_session.properties.items()
         )
 
