@@ -36,7 +36,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
-from urllib import parse
+import six.moves.urllib_parse as parse
 
 import prestodb.logging
 import prestodb.redirect
