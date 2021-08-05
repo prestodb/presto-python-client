@@ -323,7 +323,7 @@ def test_request_headers(monkeypatch):
         catalog=catalog,
         schema=schema,
         http_scheme="http",
-        session_properties={},
+        session_properties={"hash_partition_count": 500, "needs_url_encoding": 'foo,bar'},
         http_headers={
             accept_encoding_header: accept_encoding_value,
             client_info_header: client_info_value,
@@ -336,7 +336,7 @@ def test_request_headers(monkeypatch):
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
-        assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_SESSION] in ('hash_partition_count=500,needs_url_encoding=foo%2Cbar', 'needs_url_encoding=foo%2Cbar,hash_partition_count=500')
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
         assert len(headers.keys()) == 8

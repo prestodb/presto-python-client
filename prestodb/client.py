@@ -283,7 +283,7 @@ class PrestoRequest(object):
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, parse.quote(value))
+            "{}={}".format(name, parse.quote(str(value)))
             for name, value in self._client_session.properties.items()
         )
 
