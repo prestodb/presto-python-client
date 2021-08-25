@@ -9,3 +9,9 @@ Complete your CLA here: <https://code.facebook.com/cla>
 ## License
 
 By contributing to Presto, you agree that your contributions will be licensed under the [Apache License Version 2.0 (APLv2)](LICENSE).
+
+## Maintainers
+In addition to PrestoDB committers, this project is also maintained by the individuals below,
+who have committer rights to this repository:
+
+* [Ariel Weisberg](https://github.com/aweisberg)
