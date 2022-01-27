@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for myp
 import prestodb.logging
 import prestodb.redirect
 import requests
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 from prestodb import constants, exceptions
 from prestodb.transaction import NO_TRANSACTION
 
