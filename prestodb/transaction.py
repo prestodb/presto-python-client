@@ -13,13 +13,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
+
 from prestodb import constants
 import prestodb.client
 import prestodb.exceptions
-import prestodb.logging
 
 
-logger = prestodb.logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 NO_TRANSACTION = "NONE"

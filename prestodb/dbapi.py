@@ -21,13 +21,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 from typing import Any, List, Optional  # NOQA for mypy types
 import datetime
 
 from prestodb import constants
 import prestodb.exceptions
 import prestodb.client
-import prestodb.logging
 import prestodb.redirect
 from prestodb.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
@@ -38,7 +38,7 @@ __all__ = ["connect", "Connection", "Cursor"]
 apilevel = "2.0"
 threadsafety = 2
 
-logger = prestodb.logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def connect(*args, **kwargs):

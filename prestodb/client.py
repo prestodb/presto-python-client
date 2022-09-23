@@ -34,11 +34,11 @@ The main interface is :class:`PrestoQuery`: ::
 """
 from __future__ import absolute_import, division, print_function
 
+import logging
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 import six.moves.urllib_parse as parse
 
-import prestodb.logging
 import prestodb.redirect
 import requests
 from prestodb import constants, exceptions
@@ -48,7 +48,7 @@ from prestodb.transaction import NO_TRANSACTION
 __all__ = ["PrestoQuery", "PrestoRequest"]
 
 
-logger = prestodb.logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS

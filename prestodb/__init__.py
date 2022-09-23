@@ -18,6 +18,5 @@ from . import dbapi
 from . import client
 from . import constants
 from . import exceptions
-from . import logging
 
 __version__ = "0.8.2"
