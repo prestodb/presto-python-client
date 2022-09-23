@@ -20,12 +20,11 @@ from __future__ import division
 from __future__ import print_function
 
 import functools
+import logging
 import random
 import time
 
-import prestodb.logging
-
-logger = prestodb.logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HttpError(Exception):
