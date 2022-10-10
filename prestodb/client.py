@@ -359,10 +359,8 @@ class PrestoRequest(object):
             while http_response is not None and http_response.is_redirect:
                 location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
-                logger.info(
-                    "redirect {} from {} to {}".format(
+                logger.info("redirect % from % to %",
                         http_response.status_code, location, url
-                    )
                 )
                 http_response = self._post(
                     url,
@@ -412,7 +410,7 @@ class PrestoRequest(object):
 
         http_response.encoding = "utf-8"
         response = http_response.json()
-        logger.debug("HTTP {}: {}".format(http_response.status_code, response))
+        logger.debug("HTTP %s: %s", http_response.status_code, response)
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
 
@@ -482,7 +480,7 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                logger.debug("row {}".format(row))
+                logger.debug("row %s", row)
                 yield row
 
 

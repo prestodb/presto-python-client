@@ -77,7 +77,7 @@ class Transaction(object):
                 self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
             status = self._request.process(response)
         self._request.transaction_id = self._id
-        logger.info("transaction started: " + self._id)
+        logger.info("transaction started: %s", self._id)
 
     def commit(self):
         query = prestodb.client.PrestoQuery(self._request, COMMIT)
