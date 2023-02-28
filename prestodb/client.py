@@ -482,7 +482,6 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                logger.debug("row {}".format(row))
                 yield row
 
 
