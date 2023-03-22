@@ -412,7 +412,6 @@ class PrestoRequest(object):
 
         http_response.encoding = "utf-8"
         response = http_response.json()
-        logger.debug("HTTP {}: {}".format(http_response.status_code, response))
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
 
