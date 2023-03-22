@@ -558,7 +558,6 @@ class PrestoQuery(object):
         if status.columns:
             self._columns = status.columns
         self._stats.update(status.stats)
-        logger.debug(status)
         if status.next_uri is None:
             self._finished = True
         return status.rows
