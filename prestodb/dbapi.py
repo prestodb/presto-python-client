@@ -17,20 +17,21 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-import logging
-from typing import Any, List, Optional  # NOQA for mypy types
+import binascii
 import datetime
+import logging
+import uuid
+from typing import Any, List, Optional  # NOQA for mypy types
+
+import prestodb.client
+import prestodb.exceptions
+import prestodb.redirect
 
 from prestodb import constants
-import prestodb.exceptions
-import prestodb.client
-import prestodb.redirect
-from prestodb.transaction import Transaction, IsolationLevel, NO_TRANSACTION
-
+from prestodb.transaction import IsolationLevel, NO_TRANSACTION, Transaction
+from prestodb.transaction import NO_TRANSACTION
 
 __all__ = ["connect", "Connection", "Cursor"]
 
@@ -75,6 +76,7 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
+        **kwargs,
     ):
         self.host = host
         self.port = port
@@ -83,6 +85,15 @@ class Connection(object):
         self.catalog = catalog
         self.schema = schema
         self.session_properties = session_properties
+        self._client_session = prestodb.client.ClientSession(
+            user,
+            catalog,
+            schema,
+            source,
+            session_properties,
+            http_headers,
+            NO_TRANSACTION,
+        )
         # mypy cannot follow module import
         self._http_session = prestodb.client.PrestoRequest.http.Session()
         self.http_headers = http_headers
@@ -141,11 +152,7 @@ class Connection(object):
         return prestodb.client.PrestoRequest(
             self.host,
             self.port,
-            self.user,
-            self.source,
-            self.catalog,
-            self.schema,
-            self.session_properties,
+            self._client_session,
             self._http_session,
             self.http_headers,
             NO_TRANSACTION,
@@ -186,6 +193,9 @@ class Cursor(object):
         self.arraysize = 1
         self._iterator = None
         self._query = None
+
+    def __iter__(self):
+        return self._iterator
 
     @property
     def connection(self):

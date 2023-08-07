@@ -20,7 +20,7 @@ import socket
 import time
 
 from requests_kerberos.exceptions import KerberosExchangeError
-from prestodb.client import PrestoRequest
+from prestodb.client import ClientSession, PrestoRequest
 from prestodb.auth import KerberosAuthentication
 from prestodb import constants
 import prestodb.exceptions
@@ -270,12 +270,14 @@ def test_presto_initial_request(monkeypatch):
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
-        http_scheme="http",
-        session_properties={},
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http"
     )
 
     http_resp = PrestoRequest.http.Response()
@@ -318,16 +320,17 @@ def test_request_headers(monkeypatch):
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user=user,
-        source=source,
-        catalog=catalog,
-        schema=schema,
+        client_session=ClientSession(
+            user=user,
+            source=source,
+            catalog=catalog,
+            schema=schema,
+            properties={"hash_partition_count": 500, "needs_url_encoding": 'foo,bar'},
+            headers={
+                accept_encoding_header: accept_encoding_value,
+                client_info_header: client_info_value,
+            }),
         http_scheme="http",
-        session_properties={"hash_partition_count": 500, "needs_url_encoding": 'foo,bar'},
-        http_headers={
-            accept_encoding_header: accept_encoding_value,
-            client_info_header: client_info_value,
-        },
         redirect_handler=None,
     )
 
@@ -353,8 +356,9 @@ def test_request_invalid_http_headers():
         PrestoRequest(
             host="coordinator",
             port=8080,
-            user="test",
-            http_headers={constants.HEADER_USER: "invalid_header"},
+            client_session=ClientSession(
+                user="test",
+                headers={constants.HEADER_USER: "invalid_header"})
         )
     assert str(value_error.value).startswith("cannot override reserved HTTP header")
 
@@ -379,7 +383,8 @@ def test_request_timeout():
         req = PrestoRequest(
             host=host,
             port=port,
-            user="test",
+            client_session = ClientSession(
+                user="test"),
             http_scheme=http_scheme,
             max_attempts=1,
             request_timeout=request_timeout,
@@ -401,12 +406,13 @@ def test_presto_fetch_request(monkeypatch):
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session = ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={}),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = PrestoRequest.http.Response()
@@ -424,12 +430,13 @@ def test_presto_fetch_error(monkeypatch):
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session = ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={}),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = PrestoRequest.http.Response()
@@ -465,12 +472,13 @@ def test_presto_connection_error(monkeypatch, error_code, error_type, error_mess
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session = ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={}),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = PrestoRequest.http.Response()
@@ -511,7 +519,8 @@ def test_authentication_fail_retry(monkeypatch):
     req = PrestoRequest(
         host="coordinator",
         port=8080,
-        user="test",
+        client_session = ClientSession(
+            user="test"),
         http_scheme=constants.HTTPS,
         auth=kerberos_auth,
         max_attempts=attempts,
@@ -538,7 +547,7 @@ def test_503_error_retry(monkeypatch):
 
     attempts = 3
     req = PrestoRequest(
-        host="coordinator", port=8080, user="test", max_attempts=attempts
+        host="coordinator", port=8080, client_session=ClientSession(user="test"), max_attempts=attempts
     )
 
     req.post("URL")
@@ -576,7 +585,7 @@ def test_gateway_redirect(monkeypatch):
         socket, "gethostbyaddr", lambda *args: ("finalhost", ["finalhost"], "1.2.3.4")
     )
 
-    req = PrestoRequest(host="coordinator", port=8080, user="test")
+    req = PrestoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test"))
     result = req.post("http://host:80/path/")
     assert gateway_response.count == 3
     assert result.ok

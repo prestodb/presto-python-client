@@ -23,7 +23,7 @@ import click
 import logging
 import pytest
 import requests
-from prestodb.client import PrestoQuery, PrestoRequest
+from prestodb.client import ClientSession, PrestoQuery, PrestoRequest
 from prestodb.constants import DEFAULT_PORT
 from prestodb.exceptions import TimeoutError
 
@@ -110,7 +110,7 @@ def start_presto(image_tag=None, build=True, with_cache=True):
 
 
 def wait_for_presto_workers(host, port, timeout=30):
-    request = PrestoRequest(host=host, port=port, user="test_fixture")
+    request = PrestoRequest(host=host, port=port, client_session=ClientSession(user="test_fixture"))
     sql = "SELECT state FROM system.runtime.nodes"
     t0 = time.time()
     while True:

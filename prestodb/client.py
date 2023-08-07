@@ -37,10 +37,10 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
-import six.moves.urllib_parse as parse
 
 import prestodb.redirect
 import requests
+import six.moves.urllib_parse as parse
 from prestodb import constants, exceptions
 from prestodb.transaction import NO_TRANSACTION
 
@@ -62,10 +62,10 @@ else:
 class ClientSession(object):
     def __init__(
         self,
-        catalog,
-        schema,
-        source,
         user,
+        catalog = None,
+        schema = None,
+        source = None,
         properties=None,
         headers=None,
         transaction_id=None,
@@ -79,6 +79,9 @@ class ClientSession(object):
         self._properties = properties
         self._headers = headers or {}
         self.transaction_id = transaction_id
+
+    def __repr__(self):
+        return f"ClientSession({self.catalog}, {self.schema}, {self.source}, {self.user}, {self._properties}, {self._headers}, {self.transaction_id})"
 
     @property
     def properties(self):
@@ -199,11 +202,7 @@ class PrestoRequest(object):
         self,
         host,  # type: Text
         port,  # type: int
-        user,  # type: Text
-        source=None,  # type: Text
-        catalog=None,  # type: Text
-        schema=None,  # type: Text
-        session_properties=None,  # type: Optional[Dict[Text, Any]]
+        client_session,  # type: ClientSession
         http_session=None,  # type: Any
         http_headers=None,  # type: Optional[Dict[Text, Text]]
         transaction_id=NO_TRANSACTION,  # type: Optional[Text]
@@ -216,16 +215,7 @@ class PrestoRequest(object):
         service_account_file=None,
     ):
         # type: (...) -> None
-        self._client_session = ClientSession(
-            catalog,
-            schema,
-            source,
-            user,
-            session_properties,
-            http_headers,
-            transaction_id,
-        )
-
+        self._client_session = client_session
         self._host = host
         self._port = port
         self._next_uri = None  # type: Optional[Text]
@@ -539,18 +529,25 @@ class PrestoQuery(object):
 
         response = self._request.post(self._sql)
         status = self._request.process(response)
-        self.query_id = status.id
-        self._stats.update({u"queryId": self.query_id})
-        self._stats.update(status.stats)
-        self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
+        self.query_id = status.id
+        self._stats.update({"queryId": self.query_id})
+        self._stats.update(status.stats)
+        self._warnings = getattr(status, "warnings", [])
         self._result = PrestoResult(self, status.rows)
+        while (
+            not self._finished and not self._cancelled
+        ):
+            self._result._rows += self.fetch()
         return self._result
 
     def fetch(self):
         # type: () -> List[List[Any]]
         """Continue fetching data for the current query_id"""
+        if self._request.next_uri is None:
+            self._finished = True
+            return []
         response = self._request.get(self._request.next_uri)
         status = self._request.process(response)
         if status.columns:
