@@ -63,7 +63,7 @@ Following example shows a use case where both Kerberos and Oauth authentication 
 ```python
 import getpass
 import prestodb
-from prestodb.client import PrestoRequest, PrestoQuery
+from prestodb.client import ClientSession, PrestoRequest, PrestoQuery
 from requests_kerberos import DISABLED
 
 kerberos_auth = prestodb.auth.KerberosAuthentication(
@@ -76,7 +76,7 @@ kerberos_auth = prestodb.auth.KerberosAuthentication(
 req = PrestoRequest(
     host='GCP coordinator url',
     port=443,
-    user=getpass.getuser(),
+    client_session=ClientSession(user=getpass.getuser()),
     service_account_file='Service account json file path',
     http_scheme='https',
     auth=kerberos_auth
