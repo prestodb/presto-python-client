@@ -242,10 +242,126 @@ class Cursor(object):
         raise prestodb.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
-        self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
-        result = self._query.execute()
-        self._iterator = iter(result)
-        return result
+        if params:
+            assert isinstance(params, (list, tuple)), (
+                "params must be a list or tuple containing the query "
+                "parameter values"
+            )
+
+            statement_name = self._generate_unique_statement_name()
+            self._prepare_statement(operation, statement_name)
+
+            try:
+                # Send execute statement and assign the return value to `results`
+                # as it will be returned by the function
+                self._query = self._execute_prepared_statement(statement_name, params)
+                self._iterator = iter(self._query.execute())
+            finally:
+                # Send deallocate statement
+                # At this point the query can be deallocated since it has already
+                # been executed
+                # TODO: Consider caching prepared statements if requested by caller
+                self._deallocate_prepared_statement(statement_name)
+        else:
+            self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
+            self._iterator = iter(self._query.execute())
+        return self
+
+    def _generate_unique_statement_name(self):
+        return "st_" + uuid.uuid4().hex.replace("-", "")
+
+    def _prepare_statement(self, statement: str, name: str) -> None:
+        sql = f"PREPARE {name} FROM {statement}"
+        query = prestodb.client.PrestoQuery(self._request, sql=sql)
+        query.execute()
+
+    def _execute_prepared_statement(self, statement_name, params):
+        sql = (
+            "EXECUTE "
+            + statement_name
+            + " USING "
+            + ",".join(map(self._format_prepared_param, params))
+        )
+        return prestodb.client.PrestoQuery(self._request, sql=sql)
+
+    def _deallocate_prepared_statement(self, statement_name: str) -> None:
+        sql = "DEALLOCATE PREPARE " + statement_name
+        query = prestodb.client.PrestoQuery(self._request, sql=sql)
+        query.execute()
+
+    def _format_prepared_param(self, param):
+        """
+        Formats parameters to be passed in an
+        EXECUTE statement.
+        """
+        if param is None:
+            return "NULL"
+
+        if isinstance(param, bool):
+            return "true" if param else "false"
+
+        if isinstance(param, int):
+            # TODO represent numbers exceeding 64-bit (BIGINT) as DECIMAL
+            return "%d" % param
+
+        if isinstance(param, float):
+            if param == float("+inf"):
+                return "infinity()"
+            if param == float("-inf"):
+                return "-infinity()"
+            return "DOUBLE '%s'" % param
+
+        if isinstance(param, str):
+            return "'%s'" % param.replace("'", "''")
+
+        if isinstance(param, bytes):
+            return "X'%s'" % param.hex()
+
+        if isinstance(param, datetime.datetime) and param.tzinfo is None:
+            datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
+            return "TIMESTAMP '%s'" % datetime_str
+
+        if isinstance(param, datetime.datetime) and param.tzinfo is not None:
+            datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
+            # offset-based timezones
+            return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.tzname(param))
+
+        # We can't calculate the offset for a time without a point in time
+        if isinstance(param, datetime.time) and param.tzinfo is None:
+            time_str = param.strftime("%H:%M:%S.%f")
+            return "TIME '%s'" % time_str
+
+        if isinstance(param, datetime.time) and param.tzinfo is not None:
+            time_str = param.strftime("%H:%M:%S.%f")
+            # offset-based timezones
+            return "TIME '%s %s'" % (time_str, param.strftime("%Z")[3:])
+
+        if isinstance(param, datetime.date):
+            date_str = param.strftime("%Y-%m-%d")
+            return "DATE '%s'" % date_str
+
+        if isinstance(param, list):
+            return "ARRAY[%s]" % ",".join(map(self._format_prepared_param, param))
+
+        if isinstance(param, tuple):
+            return "ROW(%s)" % ",".join(map(self._format_prepared_param, param))
+
+        if isinstance(param, dict):
+            keys = list(param.keys())
+            values = [param[key] for key in keys]
+            return "MAP({}, {})".format(
+                self._format_prepared_param(keys), self._format_prepared_param(values)
+            )
+
+        if isinstance(param, uuid.UUID):
+            return "UUID '%s'" % param
+
+        if isinstance(param, (bytes, bytearray)):
+            return "X'%s'" % binascii.hexlify(param).decode("utf-8")
+
+        raise prestodb.exceptions.NotSupportedError(
+            "Query parameter of type '%s' is not supported." % type(param)
+        )
 
     def executemany(self, operation, seq_of_params):
         raise prestodb.exceptions.NotSupportedError

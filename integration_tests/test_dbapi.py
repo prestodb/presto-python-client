@@ -11,9 +11,12 @@
 # limitations under the License.
 from __future__ import absolute_import, division, print_function
 
-import integration_tests.fixtures as fixtures
+from datetime import date, datetime
+import numpy as np
 import prestodb
 import pytest
+
+import integration_tests.fixtures as fixtures
 from integration_tests.fixtures import run_presto
 from prestodb.transaction import IsolationLevel
 
@@ -116,7 +119,64 @@ def test_select_failed_query(presto_connection):
         cur.execute("select * from catalog.schema.do_not_exist")
         cur.fetchall()
 
+def test_select_query_result_iteration_statement_params(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute(
+        """
+        select * from (
+            values
+            (1, 'one', 'a'),
+            (2, 'two', 'b'),
+            (3, 'three', 'c'),
+            (4, 'four', 'd'),
+            (5, 'five', 'e')
+        ) x (id, name, letter)
+        where id >= ?
+        """,
+        params=(3,)  # expecting all the rows with id >= 3
+    )
 
+    rows = cur.fetchall()
+    assert len(rows) == 3
+
+    for row in rows:
+        # Validate that all the ids of the returned rows are greather or equals than 3
+        assert row[0] >= 3
+
+
+def test_select_query_param_types(presto_connection):
+    cur = presto_connection.cursor()
+
+    date_param = date.today()
+    timestamp_param = datetime.now().replace(microsecond=0)
+    float_param = 1.5
+    list_param = (1,2,3)
+    cur.execute(
+        """
+        select ?,?,?,?
+        """,
+        params=(date_param, timestamp_param, float_param, list_param,)
+    )
+
+    rows = cur.fetchall()
+    assert len(rows) == 1
+    for row in rows:
+        assert date.fromisoformat(row[0]) == date_param
+        assert datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S.%f") == timestamp_param
+        assert row[2] == float_param
+        assert (row[3] == np.array(list_param)).all()
+
+@pytest.mark.parametrize('params', [
+    'NOT A LIST OR TUPPLE',
+    {'invalid', 'params'},
+    object,
+])
+def test_select_query_invalid_params(presto_connection, params):
+    cur = presto_connection.cursor()
+    with pytest.raises(AssertionError):
+        cur.execute('select ?', params=params)
+
+        
 def test_select_tpch_1000(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
