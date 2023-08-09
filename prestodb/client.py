@@ -238,6 +238,7 @@ class PrestoRequest(object):
             )
             self._http_session.headers.update(self.get_oauth_token())
 
+        self.prepared_statements = []
         self._http_session.headers.update(self.http_headers)
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
@@ -270,6 +271,8 @@ class PrestoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
+        if len(self.prepared_statements) > 0:
+            headers[constants.HEADER_PREPARED_STATEMENT] = ",".join(self.prepared_statements)
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
@@ -417,6 +420,11 @@ class PrestoRequest(object):
             ):
                 self._client_session.properties[key] = value
 
+        if constants.HEADER_ADDED_PREPARE in http_response.headers:
+            self._http_session.headers[
+                constants.HEADER_PREPARED_STATEMENT
+            ] = http_response.headers[constants.HEADER_ADDED_PREPARE]
+
         self._next_uri = response.get("nextUri")
 
         return PrestoStatus(
@@ -529,12 +537,12 @@ class PrestoQuery(object):
 
         response = self._request.post(self._sql)
         status = self._request.process(response)
-        if status.next_uri is None:
-            self._finished = True
         self.query_id = status.id
         self._stats.update({"queryId": self.query_id})
         self._stats.update(status.stats)
         self._warnings = getattr(status, "warnings", [])
+        if status.next_uri is None:
+            self._finished = True
         self._result = PrestoResult(self, status.rows)
         while (
             not self._finished and not self._cancelled

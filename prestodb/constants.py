@@ -42,6 +42,9 @@ HEADER_CLEAR_SESSION = HEADER_PREFIX + "Clear-Session"
 HEADER_STARTED_TRANSACTION = HEADER_PREFIX + "Started-Transaction-Id"
 HEADER_TRANSACTION = HEADER_PREFIX + "Transaction-Id"
 
+HEADER_PREPARED_STATEMENT = 'X-Presto-Prepared-Statement'
+HEADER_ADDED_PREPARE = 'X-Presto-Added-Prepare'
+
 PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential"
 GCS_CREDENTIALS_OAUTH_TOKEN_KEY = "hive.gcs.oauth"
 
