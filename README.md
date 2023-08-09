@@ -132,7 +132,7 @@ use `tox` (see the configuration in `tox.ini`):
 $ tox
 ```
 
-To run integration tests:
+To run integration tests, make sure the Docker daemon is running and then run:
 
 ```
 $ pytest integration_tests
