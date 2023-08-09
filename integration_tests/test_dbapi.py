@@ -11,10 +11,10 @@
 # limitations under the License.
 from __future__ import absolute_import, division, print_function
 
-import fixtures
+import integration_tests.fixtures as fixtures
 import prestodb
 import pytest
-from fixtures import run_presto
+from integration_tests.fixtures import run_presto
 from prestodb.transaction import IsolationLevel
 
 TEST_SESSION_PROPERTIES = {

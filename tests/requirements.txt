@@ -1,0 +1,4 @@
+httpretty
+requests
+requests_kerberos
+click
