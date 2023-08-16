@@ -27,6 +27,7 @@ import datetime
 
 from prestodb import constants
 import prestodb.exceptions
+import prestodb.escaper
 import prestodb.client
 import prestodb.redirect
 from prestodb.transaction import Transaction, IsolationLevel, NO_TRANSACTION
@@ -232,7 +233,8 @@ class Cursor(object):
         raise prestodb.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
-        self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
+        sql = operation if params is None else operation % prestodb.escaper.escape(params)
+        self._query = prestodb.client.PrestoQuery(self._request, sql=sql)
         result = self._query.execute()
         self._iterator = iter(result)
         return result

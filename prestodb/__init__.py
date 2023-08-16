@@ -18,5 +18,6 @@ from . import dbapi
 from . import client
 from . import constants
 from . import exceptions
+from . import escaper
 
 __version__ = "0.8.3"
