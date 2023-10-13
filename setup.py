@@ -24,12 +24,13 @@ with open("prestodb/__init__.py", "rb") as f:
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
 
+require = ["pytz"]
 
 kerberos_require = ["requests_kerberos"]
 
 google_auth_require = ["google_auth"]
 
-all_require = [kerberos_require, google_auth_require]
+all_require = [require, kerberos_require, google_auth_require]
 
 tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 

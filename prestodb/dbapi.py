@@ -21,6 +21,7 @@ from __future__ import absolute_import, division, print_function
 
 import binascii
 import datetime
+from decimal import Decimal
 import logging
 import uuid
 from typing import Any, List, Optional  # NOQA for mypy types
@@ -76,6 +77,7 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
+        experimental_python_types=False,
         **kwargs,
     ):
         self.host = host
@@ -106,6 +108,8 @@ class Connection(object):
         self._isolation_level = isolation_level
         self._request = None
         self._transaction = None
+
+        self.experimental_python_types = experimental_python_types
 
     @property
     def isolation_level(self):
@@ -171,7 +175,7 @@ class Connection(object):
             request = self.transaction._request
         else:
             request = self._create_request()
-        return Cursor(self, request)
+        return Cursor(self, request, self.experimental_python_types)
 
 
 class Cursor(object):
@@ -182,7 +186,7 @@ class Cursor(object):
 
     """
 
-    def __init__(self, connection, request):
+    def __init__(self, connection, request, experimental_python_types = False):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -193,6 +197,7 @@ class Cursor(object):
         self.arraysize = 1
         self._iterator = None
         self._query = None
+        self._experimental_python_types = experimental_python_types
 
     def __iter__(self):
         return self._iterator
@@ -263,7 +268,7 @@ class Cursor(object):
                 # TODO: Consider caching prepared statements if requested by caller
                 self._deallocate_prepared_statement(statement_name)
         else:
-            self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
+            self._query = prestodb.client.PrestoQuery(self._request, sql=operation, experimental_python_types=self._experimental_python_types)
             self._iterator = iter(self._query.execute())
         return self
 
@@ -272,7 +277,7 @@ class Cursor(object):
 
     def _prepare_statement(self, statement: str, name: str) -> None:
         sql = f"PREPARE {name} FROM {statement}"
-        query = prestodb.client.PrestoQuery(self._request, sql=sql)
+        query = prestodb.client.PrestoQuery(self._request, sql=sql, experimental_python_types=self._experimental_python_types)
         query.execute()
 
     def _execute_prepared_statement(self, statement_name, params):
@@ -282,11 +287,11 @@ class Cursor(object):
             + " USING "
             + ",".join(map(self._format_prepared_param, params))
         )
-        return prestodb.client.PrestoQuery(self._request, sql=sql)
+        return prestodb.client.PrestoQuery(self._request, sql=sql, experimental_python_types=self._experimental_python_types)
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = "DEALLOCATE PREPARE " + statement_name
-        query = prestodb.client.PrestoQuery(self._request, sql=sql)
+        query = prestodb.client.PrestoQuery(self._request, sql=sql, experimental_python_types=self._experimental_python_types)
         query.execute()
 
     def _format_prepared_param(self, param):
@@ -323,6 +328,9 @@ class Cursor(object):
 
         if isinstance(param, datetime.datetime) and param.tzinfo is not None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
+            # named timezones
+            if hasattr(param.tzinfo, 'zone'):
+                return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.zone)
             # offset-based timezones
             return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.tzname(param))
 
@@ -355,6 +363,9 @@ class Cursor(object):
 
         if isinstance(param, uuid.UUID):
             return "UUID '%s'" % param
+
+        if isinstance(param, Decimal):
+            return "DECIMAL '%s'" % param
 
         if isinstance(param, (bytes, bytearray)):
             return "X'%s'" % binascii.hexlify(param).decode("utf-8")
