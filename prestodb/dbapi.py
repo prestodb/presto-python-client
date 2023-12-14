@@ -76,6 +76,7 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
+        prefix=None,
         **kwargs,
     ):
         self.host = host
@@ -84,6 +85,7 @@ class Connection(object):
         self.source = source
         self.catalog = catalog
         self.schema = schema
+        self.prefix = prefix
         self.session_properties = session_properties
         self._client_session = prestodb.client.ClientSession(
             user,
@@ -161,6 +163,7 @@ class Connection(object):
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
+            prefix=self.prefix,
         )
 
     def cursor(self):
