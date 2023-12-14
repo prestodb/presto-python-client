@@ -36,6 +36,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import prestodb.redirect
@@ -164,6 +165,8 @@ class PrestoRequest(object):
     :request_timeout: How long (in seconds) to wait for the server to send
                       data before giving up, as a float or a
                       ``(connect timeout, read timeout)`` tuple.
+    :prefix: when the presto backend is configured behind a corporate proxy
+             on a route and presto is not managed by you
 
     The client initiates a query by sending an HTTP POST to the
     coordinator. It then gets a response back from the coordinator with:
@@ -213,12 +216,14 @@ class PrestoRequest(object):
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         service_account_file=None,
+        prefix=None,
     ):
         # type: (...) -> None
         self._client_session = client_session
         self._host = host
         self._port = port
         self._next_uri = None  # type: Optional[Text]
+        self._prefix = prefix
 
         if http_session is not None:
             self._http_session = http_session
@@ -329,11 +334,23 @@ class PrestoRequest(object):
     @property
     def statement_url(self):
         # type: () -> Text
+        if self._prefix:
+            return self.get_url(f"{self._prefix}{constants.URL_STATEMENT_PATH}")
+
         return self.get_url(constants.URL_STATEMENT_PATH)
 
     @property
     def next_uri(self):
         # type: () -> Text
+        if self._prefix:
+            logger.debug(f"Updating url {self._next_uri} with prefix {self._prefix}")
+            pattern = r"(http[s]?://[^/]+)(/.*)"
+            try:
+                return re.sub(pattern, r"\1" + self._prefix + r"\2", self._next_uri)
+            except TypeError:
+                logger.error("Unable to update url with prefix. "
+                             "Continuing without prefix.")
+
         return self._next_uri
 
     def post(self, sql):
