@@ -116,7 +116,9 @@ class PrestoDialect(default.DefaultDialect):
         )
 
     def get_schema_names(self, connection, **kw):
-        result = connection.execute("SELECT schema_name FROM information_schema.schemata")
+        result = connection.execute(
+            text("SELECT schema_name FROM information_schema.schemata")
+        )
         return [row[0] for row in result]
 
     def get_table_names(self, connection, schema=None, **kw):
