@@ -31,7 +31,7 @@ google_auth_require = ["google_auth"]
 
 sqlalchemy_require = ["sqlalchemy"]
 
-all_require = [kerberos_require, google_auth_require]
+all_require = [kerberos_require, google_auth_require, sqlalchemy_require]
 
 tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 
