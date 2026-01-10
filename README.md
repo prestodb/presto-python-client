@@ -111,7 +111,32 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `prestodb.dbapi.Connection.rollback()' will be called.
 
+
+# SQLAlchemy Support
+
+The client also provides a SQLAlchemy dialect.
+
+## Installation
+
+```
+$ pip install presto-python-client[sqlalchemy]
+```
+
+## Usage
+
+To connect to Presto using SQLAlchemy:
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine('presto://user:password@host:port/catalog/schema')
+connection = engine.connect()
+
+rows = connection.execute("SELECT * FROM system.runtime.nodes").fetchall()
+```
+
 # Running Tests
+
 
 There is a helper scripts, `run`, that provides commands to run tests.
 Type `./run tests` to run both unit and integration tests.
