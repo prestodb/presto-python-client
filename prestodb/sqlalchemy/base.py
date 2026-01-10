@@ -14,7 +14,8 @@
 # This code is adapted from the trino-python-client project (Apache 2.0 License).
 # https://github.com/trinodb/trino-python-client/blob/master/trino/sqlalchemy/dialect.py
 
-from sqlalchemy import types, util
+import re
+from sqlalchemy import types, util, text
 from sqlalchemy.engine import default
 from sqlalchemy.sql import sqltypes
 
@@ -103,57 +104,65 @@ class PrestoDialect(default.DefaultDialect):
         if schema is None:
             schema = connection.engine.dialect.default_schema_name
 
+        query = text(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_schema = :schema AND table_name = :table"
+        )
         return (
             connection.execute(
-                "SELECT count(*) FROM information_schema.tables "
-                "WHERE table_schema = '{}' AND table_name = '{}'".format(
-                    schema, object_name
-                )
+                query, {"schema": schema, "table": object_name}
             ).scalar()
             > 0
         )
 
     def get_schema_names(self, connection, **kw):
-        result = connection.execute("SHOW SCHEMAS")
+        result = connection.execute("SELECT schema_name FROM information_schema.schemata")
         return [row[0] for row in result]
 
     def get_table_names(self, connection, schema=None, **kw):
         schema = schema or self.default_schema_name
         if schema is None:
             raise ValueError("schema argument is required")
-        result = connection.execute("SHOW TABLES FROM {}".format(schema))
+        
+        query = text(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = :schema"
+        )
+        result = connection.execute(query, {"schema": schema})
         return [row[0] for row in result]
 
     def get_columns(self, connection, table_name, schema=None, **kw):
         schema = schema or self.default_schema_name
         if schema is None:
             raise ValueError("schema argument is required")
-        query = "SHOW COLUMNS FROM {}.{}".format(schema, table_name)
-        result = connection.execute(query)
+            
+        query = text(
+            "SELECT column_name, data_type, is_nullable, column_default "
+            "FROM information_schema.columns "
+            "WHERE table_schema = :schema AND table_name = :table "
+            "ORDER BY ordinal_position"
+        )
+        result = connection.execute(query, {"schema": schema, "table": table_name})
+        
         columns = []
         for row in result:
-            # Column(Column, Type, Extra, Comment)
-            col_name = row[0]
-            col_type = row[1]
-            # extra = row[2]
-            # comment = row[3]
+            col_name, col_type, is_nullable, default_val = row
             columns.append(
                 {
                     "name": col_name,
                     "type": self._parse_type(col_type),
-                    "nullable": True,  # TODO: check nullability
-                    "default": None,
+                    "nullable": is_nullable.lower() == "yes",
+                    "default": default_val,
                 }
             )
         return columns
 
     def _parse_type(self, type_str):
         type_str = type_str.lower()
-        match = util.re.match(r"^([a-zA-Z0-9_]+)(\((.+)\))?$", type_str)
+        match = re.match(r"^([a-zA-Z0-9_ ]+)(\((.+)\))?$", type_str)
         if not match:
             return sqltypes.NullType()
 
-        type_name = match.group(1)
+        type_name = match.group(1).strip()
         type_args = match.group(3)
 
         if type_name in _type_map:
@@ -165,7 +174,7 @@ class PrestoDialect(default.DefaultDialect):
 
     def _parse_type_args(self, type_args):
         # TODO: improve parsing for nested types
-        return [int(a) if a.isdigit() else a for a in type_args.split(",")]
+        return [int(a.strip()) if a.strip().isdigit() else a.strip() for a in type_args.split(",")]
 
     def do_rollback(self, dbapi_connection):
         # Presto transactions usually auto-commit or are read-only
