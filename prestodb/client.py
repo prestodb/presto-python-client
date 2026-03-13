@@ -547,7 +547,7 @@ class PrestoQuery(object):
         while (
             not self._finished and not self._cancelled
         ):
-            self._result._rows += self.fetch()
+            self._result._rows.extend(self.fetch())
         return self._result
 
     def fetch(self):
