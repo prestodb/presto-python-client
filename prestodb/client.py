@@ -37,6 +37,10 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple, Union
+import pytz
 
 import prestodb.redirect
 import requests
@@ -457,10 +461,11 @@ class PrestoResult(object):
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows=None):
+    def __init__(self, query, rows=None, experimental_python_types = False):
         self._query = query
         self._rows = rows or []
         self._rownumber = 0
+        self._experimental_python_types = experimental_python_types
 
     @property
     def rownumber(self):
@@ -471,7 +476,10 @@ class PrestoResult(object):
         # Initial fetch from the first POST request
         for row in self._rows:
             self._rownumber += 1
-            yield row
+            if not self._experimental_python_types:
+                yield row
+            else:
+                yield self._map_to_python_types(row, self._query.columns)
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
@@ -479,7 +487,56 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                yield row
+                if not self._experimental_python_types:
+                    yield row
+                else:
+                    yield self._map_to_python_types(row, self._query.columns)
+
+    @classmethod
+    def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
+        (value, data_type) = item
+
+        if value is None:
+            return None
+
+        raw_type = data_type["typeSignature"]["rawType"]
+
+        try:
+            if isinstance(value, list):
+                raw_type = {
+                    "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
+                }
+                return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
+            elif "decimal" in raw_type:
+                return Decimal(value)
+            elif raw_type == "date":
+                return datetime.strptime(value, "%Y-%m-%d").date()
+            elif raw_type == "timestamp with time zone":
+                dt, tz = value.rsplit(' ', 1)
+                if tz.startswith('+') or tz.startswith('-'):
+                    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f %z")
+                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=pytz.timezone(tz))
+            elif "timestamp" in raw_type:
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
+            elif "time with time zone" in raw_type:
+                matches = re.match(r'^(.*)([\+\-])(\d{2}):(\d{2})$', value)
+                assert matches is not None
+                assert len(matches.groups()) == 4
+                if matches.group(2) == '-':
+                    tz = -timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
+                else:
+                    tz = timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
+                return datetime.strptime(matches.group(1), "%H:%M:%S.%f").time().replace(tzinfo=timezone(tz))
+            elif "time" in raw_type:
+                return datetime.strptime(value, "%H:%M:%S.%f").time()
+            else:
+                return value
+        except ValueError as e:
+            error_str = f"Could not convert '{value}' into the associated python type for '{raw_type}'"
+            raise prestodb/client.py (error_str) from e
+
+    def _map_to_python_types(self, row: List[Any], columns: List[Dict[str, Any]]) -> List[Any]:
+        return list(map(self._map_to_python_type, zip(row, columns)))
 
 
 class PrestoQuery(object):
@@ -489,6 +546,7 @@ class PrestoQuery(object):
         self,
         request,  # type: PrestoRequest
         sql,  # type: Text
+        experimental_python_types = False,
     ):
         # type: (...) -> None
         self.auth_req = request.auth_req  # type: Optional[Request]
@@ -502,7 +560,8 @@ class PrestoQuery(object):
         self._cancelled = False
         self._request = request
         self._sql = sql
-        self._result = PrestoResult(self)
+        self._result = PrestoResult(self, experimental_python_types=experimental_python_types)
+        self._experimental_python_types = experimental_python_types
 
     @property
     def columns(self):
@@ -543,7 +602,7 @@ class PrestoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = PrestoResult(self, status.rows)
+        self._result = PrestoResult(self, status.rows, self._experimental_python_types)
         while (
             not self._finished and not self._cancelled
         ):
