@@ -38,6 +38,7 @@ __all__ = ["connect", "Connection", "Cursor"]
 
 apilevel = "2.0"
 threadsafety = 2
+paramstyle = "pyformat"
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,3 @@
+*/__pycache__/*
+presto_python_client.egg-info/*
+prestodb/sqlalchemy/__pycache__/*

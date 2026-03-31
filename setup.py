@@ -29,7 +29,9 @@ kerberos_require = ["requests_kerberos"]
 
 google_auth_require = ["google_auth"]
 
-all_require = [kerberos_require, google_auth_require]
+sqlalchemy_require = ["sqlalchemy"]
+
+all_require = kerberos_require + google_auth_require + sqlalchemy_require
 
 tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 
@@ -41,7 +43,7 @@ setup(
     author_email="presto-users@googlegroups.com",
     version=version,
     url="https://github.com/prestodb/presto-python-client",
-    packages=["prestodb"],
+    packages=["prestodb", "prestodb.sqlalchemy"],
     package_data={"": ["LICENSE", "README.md"]},
     description="Client for the Presto distributed SQL Engine",
     long_description=textwrap.dedent(
@@ -72,11 +74,17 @@ setup(
         "Topic :: Database :: Front-Ends",
     ],
     install_requires=["click", "requests", "six"],
+    entry_points={
+        "sqlalchemy.dialects": [
+            "presto = prestodb.sqlalchemy.base:PrestoDialect",
+        ],
+    },
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
         "google_auth": google_auth_require,
         "tests": tests_require,
+        "sqlalchemy": sqlalchemy_require,
         ':python_version=="2.7"': py27_require,
     },
 )
